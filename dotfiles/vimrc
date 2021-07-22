@@ -1,0 +1,41 @@
+set nocompatible	 " be iMproved
+filetype off
+
+syntax on
+" Get color scheme:
+" 	wget https://raw.githubusercontent.com/crusoexia/vim-monokai/master/colors/monokai.vim | .vim/colors/monokai.vim
+colorscheme monokai
+
+set noerrorbells
+set number " relativenumber " Show line numbers
+set encoding=utf-8 " Encoding
+set ruler " Show file stats
+autocmd BufWritePre * %s/\s\+$//e " Delete trailing whitespaces on save
+set tabstop=4 softtabstop=4 " number of spaces that <Tab> in file uses
+set shiftwidth=4
+set expandtab " tab -> spaces (4 tabwidth doesnt work w/o this)
+set smartindent
+" set nowrap " dont wrap over to next line
+set ignorecase  " ignore case in search patterns
+set incsearch  " highlight match while typing search pattern
+set smartcase  " no ignore case when pattern has uppercase
+
+" Use PlugInstall for installing new
+" Use PlugUpdate
+call plug#begin('~/.vim/plugged')
+Plug 'junegunn/goyo.vim'
+Plug 'junegunn/limelight.vim'
+Plug 'vim-scripts/AutoComplPop' " automatically calls built-in autocomp (instead of Ctrl + p)
+Plug 'sheerun/vim-polyglot' " syntax & indent support
+Plug 'honza/vim-snippets' " snippet definitions
+Plug 'SirVer/ultisnips' " snippet engine
+call plug#end()
+
+
+let mapleader=" " " space leader for remapping commands
+
+nnoremap <leader>h :wincmd h<CR>
+nnoremap <leader>j :wincmd j<CR>
+nnoremap <leader>k :wincmd k<CR>
+nnoremap <leader>l :wincmd l<CR>
+nnoremap <leader>pv :wincmd v<bar> :Ex <bar> : vertical resize 30<CR>
