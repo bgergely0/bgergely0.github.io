@@ -1,11 +1,6 @@
 set nocompatible	 " be iMproved
 filetype off
 
-syntax on
-" Get color scheme:
-" 	wget https://raw.githubusercontent.com/crusoexia/vim-monokai/master/colors/monokai.vim | .vim/colors/monokai.vim
-colorscheme monokai
-
 set noerrorbells
 set number " relativenumber " Show line numbers
 set encoding=utf-8 " Encoding
@@ -20,9 +15,20 @@ set ignorecase  " ignore case in search patterns
 set incsearch  " highlight match while typing search pattern
 set smartcase  " no ignore case when pattern has uppercase
 
-" Use PlugInstall for installing new
-" Use PlugUpdate
+
+" Install vim-plug if not found
+if empty(glob('~/.vim/autoload/plug.vim'))
+  silent !curl -fLo ~/.vim/autoload/plug.vim --create-dirs
+    \ https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+endif
+
+" Run PlugInstall if there are missing plugins
+autocmd VimEnter * if len(filter(values(g:plugs), '!isdirectory(v:val.dir)'))
+  \| PlugInstall --sync | source $MYVIMRC
+\| endif
+
 call plug#begin('~/.vim/plugged')
+Plug 'crusoexia/vim-monokai'
 Plug 'junegunn/goyo.vim'
 Plug 'junegunn/limelight.vim'
 Plug 'vim-scripts/AutoComplPop' " automatically calls built-in autocomp (instead of Ctrl + p)
@@ -31,6 +37,10 @@ Plug 'honza/vim-snippets' " snippet definitions
 Plug 'SirVer/ultisnips' " snippet engine
 call plug#end()
 
+syntax on
+colorscheme monokai
+set t_Co=256
+" set termguicolors
 
 let mapleader=" " " space leader for remapping commands
 
