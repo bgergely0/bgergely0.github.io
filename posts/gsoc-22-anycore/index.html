@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <link rel="shortcut icon" href="http://balintgergely.hu/favicon.ico">
+    
+    <link rel="stylesheet" href="/css/style.min.css">
+
+    <title>GSoC &#39;22: Enhancing AnyCore, a superscalar RISC-V processor</title>
+</head>
+<body><header id="banner">
+    <h2><a href="http://balintgergely.hu">Bálint Gergely</a></h2>
+    <nav>
+        <ul>
+            
+        </ul>
+    </nav>
+</header>
+<main id="content">
+<article>
+    <header id="post-header">
+        <h1>GSoC &#39;22: Enhancing AnyCore, a superscalar RISC-V processor</h1>
+            <div>
+                <time>November 12, 2022</time>
+                </div>
+    </header><figure><img src="../gsoc-22-pictures/GSOC-Horizontal.png"/>
+</figure>
+
+<h2 id="project-introduction">Project introduction</h2>
+<p>This year I participated in Google Summer of Code - a mentorship program for newcomers to open source development. I was contributing to <a href="https://www.fossi-foundation.org/">The Free and Open Source Silicon Foundation</a>. This post summarizes my experience, and the work I&rsquo;ve done.</p>
+<h3 id="anycore">AnyCore</h3>
+<p><a href="https://people.engr.ncsu.edu/ericro/research/anycore.htm">AnyCore</a> is a 64 bit processor, implementing the RISC-V ISA. What sets apart AnyCore from other open source RISC-V cores, is that it is a superscalar core with out-of-order execution capabilities. This alone is a rare trait, as it is more challenging to implement, than an in-order core.</p>
+<p>AnyCore is highly configurable: the code base allows configuring traits like the Fetch Width, Issue Width, length of Load/Store Queues, and more. With certain configurations, the core is measured to have IPC (instructions executed per clock cycle) values above 3, the most measured being 3.67. With these options, the core can also be configured to use less resources.</p>
+<p>Another interesting feature of AnyCore is dynamic adaptivity. This means that the core can disable clock signals and power to certain parts of the pipeline, to better suit the needs of software being executed at the moment. In fact, one of the goals of the research project behind AnyCore was studying the overheads of dynamic adaptivity. AnyCore was released by NC State University, where R. Basu Roy Chowdhury worked on his PhD thesis titled AnyCore: Design, Fabrication, and Evaluation of Comprehensively Adaptive Superscalar Processors.</p>
+<!-- raw HTML omitted -->
+<!-- raw HTML omitted -->
+<figure><img src="../gsoc-22-pictures/anycore-layout.png" width="300"/><figcaption>
+            <h4>AnyCore layout</h4>
+        </figcaption>
+</figure>
+
+<h3 id="openpiton-integration">OpenPiton integration</h3>
+<!-- raw HTML omitted -->
+<p><a href="http://parallel.princeton.edu/openpiton/">OpenPiton</a> is the world&rsquo;s first open source, general purpose, multithreaded manycore processor. It is a tiled manycore framework scalable from one to 1/2 billion cores.</p>
+<!-- raw HTML omitted -->
+<p>Since its release, many different processors have been integrated into OpenPiton in place of the original OpenSPARC T1 core, AnyCore being one of them. This simplifies development of AnyCore, and completes the core with the needed uncore components, and enables AnyCore to be a manycore system.</p>
+<p><figure><img src="../gsoc-22-pictures/openpiton-system.png" width="300"/><figcaption>
+            <h4>OpenPiton system</h4>
+        </figcaption>
+</figure>
+
+<figure><img src="../gsoc-22-pictures/openpiton-tile.png" width="300"/><figcaption>
+            <h4>OpenPiton tile with a modified OpenSPARC core</h4>
+        </figcaption>
+</figure>
+</p>
+<h3 id="openpiton-tools-workflow">OpenPiton tools, workflow</h3>
+<p>OpenPiton comes with scripts that simplify development. Simulations are done with <code>sims</code>, which supports many commercial, and open source simulators. I used Verilator. At some points Jonathan Balkind also tested the design with VCS, as it found some errors, that Verilator didn&rsquo;t. With the right flags passed to sims, Verilator can generate a vcd file, which contains the waveforms of the simulation. I used GTKwave to view these.</p>
+<p>To verify the correct execution of RISC-V instructions, the RISC-V Foundation maintains the <a href="https://github.com/riscv-software-src/riscv-tests">riscv-tests</a> repository. In most cases, the simulations are targeting one of these tests.</p>
+<h3 id="identified-issues-goals-for-the-project">Identified issues, goals for the project</h3>
+<p>While AnyCore has an interesting microarchitecture, and good performance, it also has certain limitations:</p>
+<ul>
+<li>some RV64I instructions are not not working properly, or are missing</li>
+<li>the integer multiplier and divider modules, and the floating-point arithmetic modules are proprietary Designware components, so the user cannot simulate or synthesize the core without a license</li>
+</ul>
+<p>Besides fixing the mentioned issues, the other (more long-term goal) of the project is to develop AnyCore into an application class processor, which means the ability to boot a complex operating systems - for example Linux.
+To work towards this goal, we made the following decisions during my project:</p>
+<ul>
+<li>focusing on ISA extensions mandatory for Linux boot</li>
+<li>implementing the appropriate privilege levels</li>
+<li>implementing Control Status Registers mandatory for openSBI</li>
+<li>trying to run openSBI on the core</li>
+</ul>
+<p>I will write about these in more detail in the later paragraphs.</p>
+<!-- raw HTML omitted -->
+<h2 id="rv64i-64-bit-base-integer-instruction-set">RV64I: 64 bit Base Integer Instruction Set</h2>
+<p>RISC-V has a modular ISA, and software generally targets RV32G or RV64G, which are combination of a 32 bit or 64 bit base ISA, plus the standard extensions A, for atomics, M for integer multiplication/division, F and D for single and double precision floating point arithmetics, Zicsr for CSR instructions and Zifencei for the FENCE.I instruction.</p>
+<p>The first, and easiest fix was <a href="https://github.com/bring-your-own-core/anycore-riscv-src/pull/3">3 failing RV64I instructions</a>: SRAIW, SRLIW, and SRLW. These are 32 bit shift instructions. This was a minor fix in Simple_ALU.sv: the <code>&gt;&gt;</code> (logical shift) and <code>&gt;&gt;&gt;</code> (arithmetic shift) operators worked a bit differently on 32 bit subsets of 64 bit wires, than on 32 bit wires.</p>
+<p><code>MRET</code> is used to return from a trap handler executing in M mode. This instruction is part of the base ISA, but it turned out that it was missing from AnyCore. Only <code>SRET</code>, it&rsquo;s S mode counterpart was implemented. Adding this instruction was relatively straight-forward, I basically copied how <code>SRET</code> worked. Both are decoded in the Decode_RISCV module, their flags are forwarded down the pipeline, and they generate a pulse in ActiveList, which is the module responsible for commiting instructions. These pulses are used in SupRegFile to know when to return from a trap (as seen below).</p>
+<!-- raw HTML omitted -->
+<p>Another failing instruction was <code>SH</code>, which stands for store half, as it stores a half word into memory. After some debugging, I realized that the data read back from memory is not the correct length - instead of 4 bytes, only the last 2 bytes were actually written. It turned out that the memory system of OpenPiton used different codes for the load-store sizes than AnyCore, and the translation between the two was incorrect.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-patch" data-lang="patch">// DCache_Controller.sv
+
+case (stSize_i)
+	`LDST_BYTE:
+	begin
+<span style="color:#f92672">-        piton_stSize = {1&#39;b0, `LDST_BYTE};
+</span><span style="color:#f92672"></span><span style="color:#a6e22e">+        piton_stSize = `MSG_DATA_SIZE_1B;
+</span><span style="color:#a6e22e"></span>	end
+
+	`LDST_HALF_WORD:
+	begin
+<span style="color:#f92672">-        piton_stSize = {1&#39;b0, `LDST_HALF_WORD};
+</span><span style="color:#f92672"></span><span style="color:#a6e22e">+        piton_stSize = `MSG_DATA_SIZE_2B;
+</span><span style="color:#a6e22e"></span>	end
+
+	`LDST_WORD:
+	begin
+<span style="color:#f92672">-        piton_stSize = {1&#39;b0, `LDST_WORD};
+</span><span style="color:#f92672"></span><span style="color:#a6e22e">+        piton_stSize = `MSG_DATA_SIZE_4B;
+</span><span style="color:#a6e22e"></span>	end
+
+	`LDST_DOUBLE_WORD:
+	  begin
+<span style="color:#f92672">-        piton_stSize = {1&#39;b0, `LDST_DOUBLE_WORD};
+</span><span style="color:#f92672"></span><span style="color:#a6e22e">+        piton_stSize = `MSG_DATA_SIZE_8B;
+</span><span style="color:#a6e22e"></span>	  end
+endcase
+</code></pre></div><p>The <code>MRET</code> and <code>SH</code> fixes are part of a bigger PR, that&rsquo;s linked below.</p>
+<h2 id="risc-v-m-extension-standard-extension-for-integer-multiplication-and-division">RISC-V M extension: Standard Extension for Integer Multiplication and Division</h2>
+<p>Besides the base instruction set, the M extension is also mandatory for running an OS. This is supported, but as I mentioned, it uses proprietary modules. It also turned out that even with the Designware license, not all tests passed. Some of these issues were for example not sign extending the 32 bit result to 64 bits, or not checking if the divisor is 0. Another issue was that the Complex_ALU module had two multipliers instantiated: one for signed and one for unsigned multiplication. This design made it impossible to correctly execute <code>MULHSU</code>, which multiplies a signed and an unsigned operand.</p>
+<!-- raw HTML omitted -->
+<p>The multiplication was fairly simple, as it is a synthesizable operation. The division and modulo operations should not be synthesized with the &ldquo;/&rdquo; and &ldquo;%&rdquo; operators, as the tools would generate a huge combinational logic, which would slow down the execution. These operations are normally pipelined instead.</p>
+<p>I used a divider module, which I found  on GitHub. This was extended with the logic to handle signed values correctly, as it was designed only for unsigned operands. My wrapper module converted the input operands to unsigned, did the operation using the divider, and converted back to signed values afterwards.</p>
+<p><a href="https://github.com/bring-your-own-core/anycore-riscv-src/pull/2">Pull Request at the AnyCore repository</a></p>
+<p><a href="https://github.com/bring-your-own-core/byoc/pull/10">Pull Request with small changes in the BYOC repository</a></p>
+<h2 id="privilege-levels-in-risc-v-and-control-status-registers">Privilege levels in RISC-V, and Control Status Registers</h2>
+<p>There are four privilege levels defined in the RISC-V Privileged Specification: Machine mode (M), Hypervisor mode (H), Supervisor mode (S), and User mode (U). Simpler processors might only implement M mode. These are generally used in embedded projects. For running a Unix-like OS - generally Linux - M, S and U modes are required. <!-- raw HTML omitted --></p>
+<!-- raw HTML omitted -->
+<!-- raw HTML omitted -->
+<p>Control Status Registers (CSRs) hold information related to the state of the processor, which includes things like current privilege, return address after exiting a trap handler, etc. These registers are inside the SupRegFile of AnyCore. Some were implemented before, but the implementation was outdated, so most had to be redone. Some registers have side effects on writes, or have special masks for reads. This part of the project was going through the Privileged Specification, and adding each needed register one by one, with their read or write masks. Not all registers had to implemented, as some are optional. For example, according to the <a href="https://github.com/riscv-software-src/opensbi/blob/master/docs/platform_requirements.md">openSBI GitHub</a> page, Physical Memory Protection registers could be left out:</p>
+<p><em>The PMP CSRs are optional. If PMP CSRs are not implemented then OpenSBI cannot protect M-mode firmware and secured memory regions.</em></p>
+<p>I ended up doing mhartid, fcsr, frm, fflags, mtvec, stvec, mie, sie, mideleg, medeleg, mstatus, sstatus, mepc, sepc, mip, sip, mcause, scause, mscratch, mtime, minstret, mvendorid, marchid, mimpid, misa, mconfigptr, menvcfg, mtval and stval.</p>
+<p>The SupRegFile also handles traps: the logic to jump to a trap handler had to be implemented, and to return from a trap, with the SRET or MRET instructions.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-systemverilog" data-lang="systemverilog">  <span style="color:#75715e">// Returning from a trap
+</span><span style="color:#75715e"></span>  <span style="color:#66d9ef">if</span> (mretFlag_i) <span style="color:#66d9ef">begin</span>
+    <span style="color:#75715e">// get the previous machine interrupt enable flag
+</span><span style="color:#75715e"></span>    csr_mstatus_next.mie  <span style="color:#f92672">=</span> csr_mstatus.mpie;
+    <span style="color:#75715e">// restore the previous privilege level
+</span><span style="color:#75715e"></span>    priv_lvl_next  <span style="color:#f92672">=</span> csr_mstatus.mpp;
+    <span style="color:#75715e">// set mpp to user mode
+</span><span style="color:#75715e"></span>    csr_mstatus_next.mpp  <span style="color:#f92672">=</span> USER_PRIVILEGE;
+    csr_mstatus_next.mpie <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span><span style="color:#ae81ff">&#39;b1</span>;
+  <span style="color:#66d9ef">end</span>
+  <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> (sretFlag_i) <span style="color:#66d9ef">begin</span>
+    <span style="color:#75715e">// return the previous supervisor interrupt enable flag
+</span><span style="color:#75715e"></span>    csr_mstatus_next.sie  <span style="color:#f92672">=</span> csr_mstatus.spie;
+    <span style="color:#75715e">// restore the previous privilege level
+</span><span style="color:#75715e"></span>    priv_lvl_next <span style="color:#f92672">=</span> {<span style="color:#ae81ff">1</span><span style="color:#ae81ff">&#39;b0</span>, csr_mstatus.spp}; <span style="color:#75715e">//spp is 1 bit
+</span><span style="color:#75715e"></span>    <span style="color:#75715e">// set spp to user mode
+</span><span style="color:#75715e"></span>    csr_mstatus_next.spp  <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span><span style="color:#ae81ff">&#39;b0</span>;
+    csr_mstatus_next.spie <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span><span style="color:#ae81ff">&#39;b1</span>;
+  <span style="color:#66d9ef">end</span>
+</code></pre></div><!-- raw HTML omitted -->
+<p>OpenPiton includes most of the tests from the riscv-tests repository. All tests include the riscv_test.h header file, which includes useful macros. The reset_vector included below is used in all tests.</p>
+<p>As we did not have working CSRs before, the following part from the riscv_test.h file was commented out, and after the <code>MRET</code>, we just had a <code>j test_2</code> to jump to the test cases. After adding all the needed CSRs, the tests could also run with this part included, which was a way to test some of the SupRegFile functionality.</p>
+<pre tabindex="0"><code>reset_vector:                                                           \
+        INIT_XREG;                                                      \
+        RISCV_MULTICORE_DISABLE;                                        \
+        INIT_SATP;                                                      \
+        INIT_PMP;                                                       \
+        DELEGATE_NO_TRAPS;                                              \
+        li TESTNUM, 0;                                                  \
+        la t0, trap_vector;                                             \
+        csrw mtvec, t0;                                                 \
+        CHECK_XLEN;                                                     \
+        la t0, stvec_handler;                                           \
+        beqz t0, 1f;                                                    \
+        csrw stvec, t0;                                                 \
+        li t0, (1 &lt;&lt; CAUSE_LOAD_PAGE_FAULT) |                           \
+               (1 &lt;&lt; CAUSE_STORE_PAGE_FAULT) |                          \
+               (1 &lt;&lt; CAUSE_FETCH_PAGE_FAULT) |                          \
+               (1 &lt;&lt; CAUSE_MISALIGNED_FETCH) |                          \
+               (1 &lt;&lt; CAUSE_USER_ECALL) |                                \
+               (1 &lt;&lt; CAUSE_BREAKPOINT);                                 \
+        csrw medeleg, t0;                                               \
+1:      csrwi mstatus, 0;                                               \
+        init;                                                           \
+        EXTRA_INIT;                                                     \
+        EXTRA_INIT_TIMER;                                               \
+        la t0, 1f;                                                      \
+        csrw mepc, t0;                                                  \
+        csrr a0, mhartid;                                               \
+        mret;                                                           \
+</code></pre><!-- raw HTML omitted -->
+<p>Besides uncommenting the reset_vector function, and making sure tests still pass, I also tested the SupRegFile with the rv64si tests. These are testing the Supervisor ISA. As not every CSR from the specification were implemented, some of these tests were expected to fail. With the scall and sbreak tests - which are instructions for environment calls and breakpoints - I managed to find, and fix a bug in ActiveList, where the incoming exceptionFlag is only checked if its delayed version - exceptionFlag_reg - is 0. As both can be true at the same time, I had to move exceptionFlag check before the reg check, to set the recoverPC to the correct value.</p>
+<p>This was fixed in the <a href="https://github.com/bring-your-own-core/anycore-riscv-src/pull/5">PR that adds the new TRI Interface to AnyCore.</a></p>
+<h2 id="zifencei---fencei-instruction">Zifencei - FENCE.I instruction</h2>
+<p>FENCE.I was part of the base instruction set architecture, but it was moved to it&rsquo;s own ISA extension in the RISC-V standard. As it is part of RV64G, it also had to be implemented. The Unprivileged ISA specification has tips on implementing FENCE.I:</p>
+<p><em>A simple implementation can flush the local instruction cache and the instruction pipeline when the
+FENCE.I is executed.</em></p>
+<p>This is what I&rsquo;ve done. The pipeline flush is done in the ActiveList, similarly to how a branch mispredict behaves. This means, that <code>fenceFlag</code> is used in a lot of places in ActiveList (for example to reset certain queues), so to keep it simple, I&rsquo;m only including the most important parts here.</p>
+<p><code>recoverFlag_o</code> signals to the Fetch stage to fetch from <code>recoverPC</code>.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-systemverilog" data-lang="systemverilog"><span style="color:#75715e">// ActiveList.sv
+</span><span style="color:#75715e"></span>
+<span style="color:#66d9ef">assign</span> recoverFlag_o    <span style="color:#f92672">=</span> violateFlag_reg <span style="color:#f92672">|</span> mispredFlag_reg
+  <span style="color:#f92672">|</span> exceptionFlag_reg <span style="color:#f92672">|</span> fenceFlag_reg;
+<span style="color:#66d9ef">assign</span> recoverPC_o      <span style="color:#f92672">=</span> (mispredFlag_reg) <span style="color:#f92672">?</span> targetPC <span style="color:#f92672">:</span> recoverPC;
+</code></pre></div><p>In the case of <code>FENCE.I</code>, <code>mispredFlag_reg</code> is 0, so the <code>recoverPC_o</code> is <code>recoverPC</code>, so we have to set the address of the next instruction to that.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-systemverilog" data-lang="systemverilog">  <span style="color:#66d9ef">if</span> (fenceFlag[<span style="color:#ae81ff">0</span>] <span style="color:#f92672">&amp;</span> <span style="color:#f92672">~</span>stallStCommit_i)
+  <span style="color:#66d9ef">begin</span>
+    fenceFlag_reg       <span style="color:#f92672">&lt;=</span> <span style="color:#ae81ff">1</span><span style="color:#ae81ff">&#39;b1</span>;
+    <span style="color:#75715e">// targetAddr is pc_p4 from Ctrl ALU
+</span><span style="color:#75715e"></span>    recoverPC           <span style="color:#f92672">&lt;=</span> targetAddr;
+  <span style="color:#66d9ef">end</span>
+</code></pre></div><p>And finally, the signal to flush the Icache is set by the <code>fenceFlag_reg</code>.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-systemverilog" data-lang="systemverilog"><span style="color:#66d9ef">assign</span> icFlush_o <span style="color:#f92672">=</span> fenceFlag_reg;
+</code></pre></div><p>The I$ is flushed by invalidating the entries.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-systemverilog" data-lang="systemverilog"><span style="color:#75715e">// ICache_controller.sv
+</span><span style="color:#75715e"></span>
+  <span style="color:#66d9ef">always_ff</span> @(<span style="color:#66d9ef">posedge</span> clk <span style="color:#66d9ef">or</span> <span style="color:#66d9ef">posedge</span> reset)
+  <span style="color:#66d9ef">begin</span>
+    <span style="color:#66d9ef">if</span>(reset <span style="color:#f92672">|</span> icFlush_i)
+    <span style="color:#66d9ef">begin</span>
+      <span style="color:#66d9ef">int</span> i;
+      <span style="color:#66d9ef">for</span>(i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; i <span style="color:#f92672">&lt;</span> <span style="color:#66d9ef">`ICACHE_NUM_LINES</span>;i<span style="color:#f92672">++</span>)
+        valid_array[i] <span style="color:#f92672">&lt;=</span> <span style="color:#ae81ff">1</span><span style="color:#ae81ff">&#39;b0</span>;
+    <span style="color:#66d9ef">end</span>
+    <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span>(mem2icInv_i)
+    <span style="color:#66d9ef">begin</span>
+      valid_array[mem2icInvInd_i] <span style="color:#f92672">&lt;=</span> <span style="color:#ae81ff">1</span><span style="color:#ae81ff">&#39;b0</span>;
+    <span style="color:#66d9ef">end</span>
+    <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span>(fillValid)
+    <span style="color:#66d9ef">begin</span>
+      valid_array[fillIndex] <span style="color:#f92672">&lt;=</span> <span style="color:#ae81ff">1</span><span style="color:#ae81ff">&#39;b1</span>;
+    <span style="color:#66d9ef">end</span>
+  <span style="color:#66d9ef">end</span>
+</code></pre></div><p><a href="https://github.com/bring-your-own-core/anycore-riscv-src/pull/4">Pull Request with CSRs, FENCE.I and SH fix</a></p>
+<h3 id="running-opensbi-on-anycore">Running openSBI on AnyCore</h3>
+<p><a href="https://github.com/riscv-software-src/opensbi">openSBI</a> is an open source implementation of the RISC-V SBI Specification, where SBI stands for Supervisor Binary Interface. openSBI is essentially an interface between a platform-specific firmware running in M mode, and a bootloader or the kernel running in S mode, so running Linux on a RISC-V processor requires the ability to run openSBI first.</p>
+<p>While this part of the project produced very little code, as it was more about testing than development, I think what we found can be interesting to include here.</p>
+<p>We have made a few changes to the openSBI code. First of all, openSBI requires RV32IMA or RV64IMA support. AnyCore doesn&rsquo;t support the Atomic extension yet, so we had to emulate the atomic instructions. This was done by my mentor, Jonathan Balkind. <a href="https://github.com/bgergely0/opensbi/commit/10a492f6714e2534f6d2f716bb61a1aa88f28e42">See this change here</a>.</p>
+<p>openSBI supports different platforms, out of which we used the generic and fpga-openpiton.
+Since the newest openSBI version didn&rsquo;t work with OpenPiton + Ariane - which should be a more stable, and better verified platform - we also had to try using the generic version, or going back to version 0.9. These changes are done with selecting the appropriate build flags.</p>
+<p>There is a <code>$display</code> function in the ActiveList of AnyCore, which prints the <code>currentCommitPC</code>, which is the program counter of the committed instruction. We could compare these from the log file of sims with the memory addresses of instructions from the disassembled binary. Following the committed PCs, we found that the execution stops while parsing the flattened device tree (FDT) each time.</p>
+<p>Version 0.9 ran for 7k instructions with the generic platform, and 12k with fpga-openpiton. The newest version ran for 33k on fpga-openpiton and 385k with generic. With VCS, the generic platform committed 637k instructions.</p>
+<p>This part requires further debugging, as it is a mandatory step towards being application class.</p>
+<h2 id="new-interface-to-anycore">New interface to AnyCore</h2>
+<p>The core is instantiated in a tile in OpenPiton. Due to differences in the AnyCore top module interface, and the generic OpenPiton core-L1.5 cache interface (this is called a Transaction-Response Interface, or TRI), AnyCore first connected to the anycoredecoder and anycore_encoder modules, which translated between the two. I refactored these to modules into a new one called anycore_tri_transducer, and moved it into AnyCore. This way, the top level interface of AnyCore is similar to other cores connected to OpenPiton.</p>
+<p><a href="https://github.com/bring-your-own-core/anycore-riscv-src/pull/5">Link to AnyCore PR</a></p>
+<p><a href="https://github.com/bring-your-own-core/byoc/pull/13">Link to BYOC PR</a></p>
+<!-- raw HTML omitted -->
+<!-- raw HTML omitted -->
+</article>
+
+        </main><footer id="footer">
+    Copyright © 2022 Gergely Balint
+</footer>
+</body>
+</html>
