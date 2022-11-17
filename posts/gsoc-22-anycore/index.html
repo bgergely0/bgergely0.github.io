@@ -225,13 +225,20 @@ FENCE.I is executed.</em></p>
 Since the newest openSBI version didn&rsquo;t work with OpenPiton + Ariane - which should be a more stable, and better verified platform - we also had to try using the generic version, or going back to version 0.9. These changes are done with selecting the appropriate build flags.</p>
 <p>There is a <code>$display</code> function in the ActiveList of AnyCore, which prints the <code>currentCommitPC</code>, which is the program counter of the committed instruction. We could compare these from the log file of sims with the memory addresses of instructions from the disassembled binary. Following the committed PCs, we found that the execution stops while parsing the flattened device tree (FDT) each time.</p>
 <p>Version 0.9 ran for 7k instructions with the generic platform, and 12k with fpga-openpiton. The newest version ran for 33k on fpga-openpiton and 385k with generic. With VCS, the generic platform committed 637k instructions.</p>
-<p>This part requires further debugging, as it is a mandatory step towards being application class.</p>
+<p>This part requires further debugging, as it is a mandatory step towards being application class. This could be a great project for a future GSoC contributor!</p>
 <h2 id="new-interface-to-anycore">New interface to AnyCore</h2>
 <p>The core is instantiated in a tile in OpenPiton. Due to differences in the AnyCore top module interface, and the generic OpenPiton core-L1.5 cache interface (this is called a Transaction-Response Interface, or TRI), AnyCore first connected to the anycoredecoder and anycore_encoder modules, which translated between the two. I refactored these to modules into a new one called anycore_tri_transducer, and moved it into AnyCore. This way, the top level interface of AnyCore is similar to other cores connected to OpenPiton.</p>
 <p><a href="https://github.com/bring-your-own-core/anycore-riscv-src/pull/5">Link to AnyCore PR</a></p>
 <p><a href="https://github.com/bring-your-own-core/byoc/pull/13">Link to BYOC PR</a></p>
-<!-- raw HTML omitted -->
-<!-- raw HTML omitted -->
+<h2 id="personal-closing-notes">Personal closing notes</h2>
+<p>I&rsquo;ve learnt a lot during this years GSoC. I was interested in computer architecture, and I&rsquo;m really glad I could contribute to an open source core, and actually see how some of the ideas are implemented.</p>
+<p>This was my first time contributing to a bigger project, and I had this idea before, that one has to understand every little detail of a project to be able to contribute. I&rsquo;ve learnt that this is not the case, and understanding a bigger codebase is a very incremental process, that everyone has to go through.</p>
+<p>Previously, I&rsquo;ve had many positive experiences interacting with open source projects: when asking questions about the tools I&rsquo;ve used, I&rsquo;ve got very helpful and quick answers. When reporting bugs I&rsquo;ve felt that people are passionate about the projects they&rsquo;re maintaining, so my reports aren&rsquo;t getting lost in some ticket system, but are looked into. It was a great experience to be on the other side, and push a project forward, which would hopefully be useful for somebody else.</p>
+<p>I&rsquo;ve found GSoC reports from previous FOSSi contributors very interesting and inspiring, so if you read this, make sure to check those out as well:</p>
+<ul>
+<li><a href="https://summerofcode.withgoogle.com/programs/2022/organizations/free-and-open-source-silicon-foundation">this years projects at the GSoC site</a></li>
+<li><a href="https://www.fossi-foundation.org/archive">previous years projects can be found at the FOSSi blog</a>.</li>
+</ul>
 </article>
 
         </main><footer id="footer">

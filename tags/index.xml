@@ -218,13 +218,20 @@ FENCE.I is executed.&lt;/em&gt;&lt;/p&gt;
 Since the newest openSBI version didn&amp;rsquo;t work with OpenPiton + Ariane - which should be a more stable, and better verified platform - we also had to try using the generic version, or going back to version 0.9. These changes are done with selecting the appropriate build flags.&lt;/p&gt;
 &lt;p&gt;There is a &lt;code&gt;$display&lt;/code&gt; function in the ActiveList of AnyCore, which prints the &lt;code&gt;currentCommitPC&lt;/code&gt;, which is the program counter of the committed instruction. We could compare these from the log file of sims with the memory addresses of instructions from the disassembled binary. Following the committed PCs, we found that the execution stops while parsing the flattened device tree (FDT) each time.&lt;/p&gt;
 &lt;p&gt;Version 0.9 ran for 7k instructions with the generic platform, and 12k with fpga-openpiton. The newest version ran for 33k on fpga-openpiton and 385k with generic. With VCS, the generic platform committed 637k instructions.&lt;/p&gt;
-&lt;p&gt;This part requires further debugging, as it is a mandatory step towards being application class.&lt;/p&gt;
+&lt;p&gt;This part requires further debugging, as it is a mandatory step towards being application class. This could be a great project for a future GSoC contributor!&lt;/p&gt;
 &lt;h2 id=&#34;new-interface-to-anycore&#34;&gt;New interface to AnyCore&lt;/h2&gt;
 &lt;p&gt;The core is instantiated in a tile in OpenPiton. Due to differences in the AnyCore top module interface, and the generic OpenPiton core-L1.5 cache interface (this is called a Transaction-Response Interface, or TRI), AnyCore first connected to the anycoredecoder and anycore_encoder modules, which translated between the two. I refactored these to modules into a new one called anycore_tri_transducer, and moved it into AnyCore. This way, the top level interface of AnyCore is similar to other cores connected to OpenPiton.&lt;/p&gt;
 &lt;p&gt;&lt;a href=&#34;https://github.com/bring-your-own-core/anycore-riscv-src/pull/5&#34;&gt;Link to AnyCore PR&lt;/a&gt;&lt;/p&gt;
 &lt;p&gt;&lt;a href=&#34;https://github.com/bring-your-own-core/byoc/pull/13&#34;&gt;Link to BYOC PR&lt;/a&gt;&lt;/p&gt;
-&lt;!-- raw HTML omitted --&gt;
-&lt;!-- raw HTML omitted --&gt;
+&lt;h2 id=&#34;personal-closing-notes&#34;&gt;Personal closing notes&lt;/h2&gt;
+&lt;p&gt;I&amp;rsquo;ve learnt a lot during this years GSoC. I was interested in computer architecture, and I&amp;rsquo;m really glad I could contribute to an open source core, and actually see how some of the ideas are implemented.&lt;/p&gt;
+&lt;p&gt;This was my first time contributing to a bigger project, and I had this idea before, that one has to understand every little detail of a project to be able to contribute. I&amp;rsquo;ve learnt that this is not the case, and understanding a bigger codebase is a very incremental process, that everyone has to go through.&lt;/p&gt;
+&lt;p&gt;Previously, I&amp;rsquo;ve had many positive experiences interacting with open source projects: when asking questions about the tools I&amp;rsquo;ve used, I&amp;rsquo;ve got very helpful and quick answers. When reporting bugs I&amp;rsquo;ve felt that people are passionate about the projects they&amp;rsquo;re maintaining, so my reports aren&amp;rsquo;t getting lost in some ticket system, but are looked into. It was a great experience to be on the other side, and push a project forward, which would hopefully be useful for somebody else.&lt;/p&gt;
+&lt;p&gt;I&amp;rsquo;ve found GSoC reports from previous FOSSi contributors very interesting and inspiring, so if you read this, make sure to check those out as well:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://summerofcode.withgoogle.com/programs/2022/organizations/free-and-open-source-silicon-foundation&#34;&gt;this years projects at the GSoC site&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://www.fossi-foundation.org/archive&#34;&gt;previous years projects can be found at the FOSSi blog&lt;/a&gt;.&lt;/li&gt;
+&lt;/ul&gt;
 </description>
     </item>
     
